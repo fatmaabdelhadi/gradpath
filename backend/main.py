@@ -88,6 +88,10 @@ class UpdateStudentRequest(BaseModel):
     completed_courses: Optional[List[str]] = None
     academic_standing: Optional[str] = None
 
+class UpdatePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 @app.get("/")
 async def root():
     return {"message": "GradPath Chatbot API"}
@@ -777,6 +781,49 @@ async def get_student(user_id: str):
         raise
     except Exception as e:
         print(f"Error getting student: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.put("/users/{user_id}/password")
+async def update_password(user_id: str, request: UpdatePasswordRequest):
+    """
+    Update user password.
+    """
+    try:
+        # Convert string user_id to ObjectId if possible
+        try:
+            object_id = ObjectId(user_id)
+        except InvalidId:
+            # If not a valid ObjectId, try to find by email
+            user = await db.users.find_one({"email": user_id})
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            object_id = user["_id"]
+        
+        # Get the user
+        user = await db.users.find_one({"_id": object_id})
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if current password matches
+        if user.get("password") != request.current_password:
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        # Update the password
+        result = await db.users.update_one(
+            {"_id": object_id},
+            {"$set": {"password": request.new_password}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="No changes made")
+        
+        return {"message": "Password updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating password: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 if __name__ == "__main__":

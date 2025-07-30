@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Plus, Search, LogOut, Check, X, Trash2, UploadCloud, FileText } from "lucide-react"
+import { Plus, Search, LogOut, Check, X, Trash2, UploadCloud, FileText, Settings, PanelLeft } from "lucide-react"
 
 interface Course {
   _id?: string
@@ -55,10 +55,11 @@ export default function GradPath() {
   const [showCourseSaved, setShowCourseSaved] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [prerequisiteFilter, setPrerequisiteFilter] = useState("all")
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const coursesPerPage = 5
+  const coursesPerPage = 4
   
   // PDF parsing state
   const [showPdfUpload, setShowPdfUpload] = useState(false)
@@ -70,6 +71,15 @@ export default function GradPath() {
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  // Account Settings state
+  const [showAccountSettings, setShowAccountSettings] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [accountEmail, setAccountEmail] = useState("")
+  const [accountPassword, setAccountPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isUpdatingAccount, setIsUpdatingAccount] = useState(false)
 
   // Generate dynamic prerequisite filter options
   const getPrerequisiteOptions = () => {
@@ -90,6 +100,20 @@ export default function GradPath() {
   useEffect(() => {
     fetchCourses()
   }, [])
+
+  // Get current user on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const user = localStorage.getItem("currentUser")
+      if (user) {
+        const userData = JSON.parse(user)
+        setCurrentUser(userData)
+        setAccountEmail(userData.email || "")
+      } else {
+        router.push("/")
+      }
+    }
+  }, [router])
 
   const fetchCourses = async () => {
     try {
@@ -123,8 +147,66 @@ export default function GradPath() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("currentUser")
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem("currentUser")
+    }
     router.push("/")
+  }
+
+  const handleAccountSettings = () => {
+    setShowAccountSettings(true)
+  }
+
+  const handleUpdateAccount = async () => {
+    if (newPassword !== confirmPassword) {
+      alert("New passwords don't match!")
+      return
+    }
+
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters long!")
+      return
+    }
+
+    setIsUpdatingAccount(true)
+    try {
+      // Get current user from localStorage
+      const user = typeof window !== 'undefined' ? localStorage.getItem("currentUser") : null
+      if (!user) {
+        alert("User not found. Please log in again.")
+        return
+      }
+      
+      const userData = JSON.parse(user)
+      
+      // Call the backend API to update password
+      const response = await fetch(`http://localhost:8000/users/${userData.email}/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          current_password: accountPassword,
+          new_password: newPassword
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to update password')
+      }
+
+      const result = await response.json()
+      alert(result.message || "Password updated successfully!")
+      setShowAccountSettings(false)
+      setNewPassword("")
+      setConfirmPassword("")
+      setAccountPassword("")
+    } catch (error) {
+      alert(`Failed to update password: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsUpdatingAccount(false)
+    }
   }
 
   const [newCourse, setNewCourse] = useState({
@@ -208,6 +290,47 @@ export default function GradPath() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, prerequisiteFilter])
+
+  // Generate limited page numbers for pagination
+  const getPageNumbers = () => {
+    const maxVisiblePages = 5
+    const pages: (number | string)[] = []
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total is small
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Show limited pages with ellipsis
+      if (currentPage <= 3) {
+        // Near the beginning
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i)
+        }
+        pages.push('...')
+        pages.push(totalPages)
+      } else if (currentPage >= totalPages - 2) {
+        // Near the end
+        pages.push(1)
+        pages.push('...')
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i)
+        }
+      } else {
+        // In the middle
+        pages.push(1)
+        pages.push('...')
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i)
+        }
+        pages.push('...')
+        pages.push(totalPages)
+      }
+    }
+    
+    return pages
+  }
 
   const handleDeleteSelected = async () => {
     if (selectedCourses.length === 0) return
@@ -385,22 +508,32 @@ export default function GradPath() {
   }
 
   return (
-    <div className="min-h-screen bg-[#669bbb] p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="h-screen bg-[#669bbb] p-6 pb-8 overflow-hidden">
+      <div className="max-w-7xl mx-auto h-full">
         {/* Main Dashboard */}
-        <div className="bg-[#f5f5f5] rounded-lg shadow-lg overflow-hidden">
-          <div className="flex">
+        <div className="bg-[#f5f5f5] rounded-lg shadow-lg overflow-hidden h-full">
+          <div className="flex h-full">
             {/* Sidebar */}
-            <div className="w-64 bg-[#022131] text-white">
-              <div className="p-6">
-                <div className="flex items-center gap-2 mb-8">
-                  <div className="w-8 h-8 bg-[#5b5fc7] rounded flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">G</span>
-                  </div>
-                  <span className="font-semibold text-lg">GradPath.</span>
+            {sidebarOpen && (
+            <div className="w-64 bg-[#022131] text-white flex flex-col h-full">
+              <div className="p-6 flex-1 overflow-y-auto">
+                <div className="flex items-center justify-between">
+                 
+          
+              <h1 className="text-lg font-medium">GradPath</h1>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(false)}
+                className="text-white hover:bg-gray-700 p-1 h-6 w-6"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </Button>
+            
+                
                 </div>
 
-                <nav className="space-y-2">
+                <nav className="space-y-2 mt-8">
                   <div className="text-[#b8d1e0] text-sm font-medium py-2 px-3 bg-[#02283b] rounded">Courses</div>
                   <button
                     className="w-full text-left text-[#b8d1e0] text-sm font-medium py-2 px-3 rounded hover:bg-[#02283b] transition-colors"
@@ -408,13 +541,19 @@ export default function GradPath() {
                   >
                     Rules
                   </button>
+                  <button
+                    className="w-full text-left text-[#b8d1e0] text-sm font-medium py-2 px-3 rounded hover:bg-[#02283b] transition-colors"
+                    onClick={handleAccountSettings}
+                  >
+                    Account Settings
+                  </button>
                 </nav>
               </div>
 
-              <div className="absolute bottom-6 left-6">
+              <div className="p-4 border-t border-[#02283b]">
                 <Button 
                   variant="ghost" 
-                  className="text-[#b8d1e0] hover:text-white hover:bg-[#02283b] p-2"
+                  className="w-full justify-start text-white hover:bg-gray-700 p-2"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
@@ -422,14 +561,26 @@ export default function GradPath() {
                 </Button>
               </div>
             </div>
-
+            )}
             {/* Main Content */}
-            <div className="flex-1 p-8">
+            <div className="flex-1 p-8 overflow-y-auto h-full">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
+                {!sidebarOpen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(true)}
+                className="text-gray-600 hover:bg-gray-100 p-1 h-8 w-8"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </Button>
+            )}
                   <h1 className="text-2xl font-semibold text-[#2c2c2c]">Courses</h1>
                   <div className="w-8 h-8 bg-[#5b5fc7] rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">H</span>
+                    <span className="text-white text-sm font-medium">
+                      {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'U'}
+                    </span>
                   </div>
                 </div>
 
@@ -525,16 +676,17 @@ export default function GradPath() {
                         >
                           ←
                       </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        {getPageNumbers().map((page, index) => (
                           <Button
-                            key={page}
+                            key={index}
                             variant={currentPage === page ? "outline" : "ghost"}
                             size="sm"
                             className={`w-8 h-8 p-0 ${currentPage === page ? "bg-[#022131] text-white" : ""}`}
-                            onClick={() => handlePageChange(page)}
+                            onClick={() => typeof page === 'number' ? handlePageChange(page) : undefined}
+                            disabled={typeof page === 'string'}
                           >
                             {page}
-                      </Button>
+                          </Button>
                         ))}
                         <Button 
                           variant="outline" 
@@ -642,6 +794,7 @@ export default function GradPath() {
             </div>
           </div>
         </div>
+      </div>
 
         {/* Add New Course Modal */}
         <Dialog open={showAddCourse} onOpenChange={setShowAddCourse}>
@@ -726,7 +879,7 @@ export default function GradPath() {
                   <Label className="text-sm font-medium text-[#2c2c2c]">Min. GPA (Optional)</Label>
                   <Input
                     value={newCourse.min_gpa}
-                    onChange={(e) => setNewCourse({ ...newCourse, min_gpa: parseFloat(e.target.value) || 0.0 })}
+                    onChange={(e) => setNewCourse({ ...newCourse, min_gpa: e.target.value })}
                     className="mt-1"
                   />
                 </div>
@@ -925,7 +1078,99 @@ export default function GradPath() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Account Settings Modal */}
+        <Dialog open={showAccountSettings} onOpenChange={setShowAccountSettings}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-[#2c2c2c]">Account Settings</DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-4 top-4"
+                onClick={() => setShowAccountSettings(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="email" className="text-sm font-medium text-[#2c2c2c]">
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={accountEmail}
+                  onChange={(e) => setAccountEmail(e.target.value)}
+                  className="mt-1 bg-white border-[#d3d5d5]"
+                  disabled
+                />
+                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+              </div>
+
+              <div>
+                <Label htmlFor="currentPassword" className="text-sm font-medium text-[#2c2c2c]">
+                  Current Password
+                </Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={accountPassword}
+                  onChange={(e) => setAccountPassword(e.target.value)}
+                  className="mt-1 bg-white border-[#d3d5d5]"
+                  placeholder="Enter current password"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="newPassword" className="text-sm font-medium text-[#2c2c2c]">
+                  New Password
+                </Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="mt-1 bg-white border-[#d3d5d5]"
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="confirmPassword" className="text-sm font-medium text-[#2c2c2c]">
+                  Confirm New Password
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-1 bg-white border-[#d3d5d5]"
+                  placeholder="Confirm new password"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleUpdateAccount}
+                  disabled={isUpdatingAccount || !accountPassword || !newPassword || !confirmPassword}
+                  className="flex-1 bg-[#022131] hover:bg-[#02283b] text-white"
+                >
+                  {isUpdatingAccount ? "Updating..." : "Update Password"}
+                </Button>
+                <Button
+                  onClick={() => setShowAccountSettings(false)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-    </div>
   )
 }

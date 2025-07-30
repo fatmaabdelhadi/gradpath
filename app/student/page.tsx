@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { LogOut, Send, Search, PanelLeft, X, User, Plus, BookOpen, GraduationCap, TrendingUp, AlertCircle } from "lucide-react"
+import { LogOut, Send, PanelLeft, X, User, Plus, BookOpen, GraduationCap, TrendingUp, AlertCircle, Settings } from "lucide-react"
 
 interface ChatMessage {
   id: string
@@ -56,6 +56,13 @@ export default function GradPathApp() {
   const [newGPA, setNewGPA] = useState("")
   const [selectedCourse, setSelectedCourse] = useState("")
 
+  // Account Settings state
+  const [showAccountSettings, setShowAccountSettings] = useState(false)
+  const [accountPassword, setAccountPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isUpdatingAccount, setIsUpdatingAccount] = useState(false)
+
   useEffect(() => {
     const user = localStorage.getItem("currentUser")
     if (user) {
@@ -70,6 +77,25 @@ export default function GradPathApp() {
     }
   }, [router])
 
+  // Ensure completed courses are always deduplicated
+  useEffect(() => {
+    if (studentData && studentData.completed_courses) {
+      const uniqueCourses = [...new Set(studentData.completed_courses)]
+      console.log('Completed courses check:', {
+        original: studentData.completed_courses,
+        unique: uniqueCourses,
+        hasDuplicates: uniqueCourses.length !== studentData.completed_courses.length
+      })
+      if (uniqueCourses.length !== studentData.completed_courses.length) {
+        console.log('Deduplicating completed courses:', studentData.completed_courses, '->', uniqueCourses)
+        setStudentData(prev => prev ? ({
+          ...prev,
+          completed_courses: uniqueCourses
+        }) : null)
+      }
+    }
+  }, [studentData])
+
   const fetchStudentData = async (userId: string) => {
     setLoadingStudentData(true)
     try {
@@ -78,6 +104,8 @@ export default function GradPathApp() {
         const data = await response.json()
         // Remove duplicates from completed_courses
         const uniqueCompletedCourses = [...new Set(data.student.completed_courses)]
+        console.log('Original completed courses:', data.student.completed_courses)
+        console.log('Unique completed courses:', uniqueCompletedCourses)
         setStudentData({
           ...data.student,
           completed_courses: uniqueCompletedCourses
@@ -135,6 +163,62 @@ export default function GradPathApp() {
     router.push("/")
   }
 
+  const handleAccountSettings = () => {
+    setShowAccountSettings(true)
+  }
+
+  const handleUpdateAccount = async () => {
+    if (newPassword !== confirmPassword) {
+      alert("New passwords don't match!")
+      return
+    }
+
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters long!")
+      return
+    }
+
+    setIsUpdatingAccount(true)
+    try {
+      // Get current user from localStorage
+      const user = localStorage.getItem("currentUser")
+      if (!user) {
+        alert("User not found. Please log in again.")
+        return
+      }
+      
+      const userData = JSON.parse(user)
+      
+      // Call the backend API to update password
+      const response = await fetch(`http://localhost:8000/users/${userData.email}/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          current_password: accountPassword,
+          new_password: newPassword
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to update password')
+      }
+
+      const result = await response.json()
+      alert(result.message || "Password updated successfully!")
+      setShowAccountSettings(false)
+      setNewPassword("")
+      setConfirmPassword("")
+      setAccountPassword("")
+    } catch (error) {
+      alert(`Failed to update password: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsUpdatingAccount(false)
+    }
+  }
+
   const handleAddCompletedCourse = async () => {
     if (!selectedCourse || !studentData) return
 
@@ -144,7 +228,12 @@ export default function GradPathApp() {
       return
     }
 
-    const updatedCourses = [...studentData.completed_courses, selectedCourse]
+    console.log('Adding course:', selectedCourse)
+    console.log('Current completed courses:', studentData.completed_courses)
+    
+    const updatedCourses = [...new Set([...studentData.completed_courses, selectedCourse])]
+    console.log('Updated completed courses:', updatedCourses)
+    
     const success = await updateStudentData({ completed_courses: updatedCourses })
     
     if (success) {
@@ -286,6 +375,12 @@ export default function GradPathApp() {
               >
                 Dashboard
               </div>
+              <div
+                className="px-3 py-2 text-sm cursor-pointer rounded text-gray-300 hover:text-white"
+                onClick={handleAccountSettings}
+              >
+                Account Settings
+              </div>
             </div>
           </nav>
 
@@ -320,17 +415,10 @@ export default function GradPathApp() {
             <h2 className="text-xl font-medium text-gray-900">{currentView === "chat" ? "Gradbot" : "Student Dashboard"}</h2>
           </div>
           <div className="flex items-center gap-4">
-            {currentView === "chat" && (
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Search Conversation"
-                  className="pl-10 w-64 bg-gray-50 border-gray-200 text-sm h-9"
-                />
-              </div>
-            )}
             <Avatar className="w-8 h-8 bg-blue-500">
-              <AvatarFallback className="text-white text-sm font-medium">S</AvatarFallback>
+              <AvatarFallback className="text-white text-sm font-medium">
+                {currentUser?.email?.charAt(0).toUpperCase() || "S"}
+              </AvatarFallback>
             </Avatar>
           </div>
         </div>
@@ -339,7 +427,7 @@ export default function GradPathApp() {
           <>
             {/* Chat Content */}
             <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
-              <div className="max-w-4xl space-y-6">
+              <div className="max-w-3xl mx-auto space-y-6">
                 {messages.map((msg) => (
                   <div key={msg.id} className={`flex items-start gap-3 ${msg.type === "user" ? "justify-end" : ""}`}>
                     {msg.type === "bot" && (
@@ -378,7 +466,7 @@ export default function GradPathApp() {
 
             {/* Message Input */}
             <div className="bg-white p-4">
-              <div className="max-w-4xl">
+              <div className="max-w-3xl mx-auto">
                 <div className="relative">
                   <Input
                     value={message}
@@ -515,8 +603,8 @@ export default function GradPathApp() {
                                 <SelectContent>
                                   {availableCourses
                                     .filter(course => !studentData.completed_courses.includes(course.code))
-                                    .map((course) => (
-                                      <SelectItem key={course.code} value={course.code}>
+                                    .map((course, index) => (
+                                      <SelectItem key={`available-${course.code}-${index}`} value={course.code}>
                                         {course.code} - {course.title}
                                       </SelectItem>
                                     ))}
@@ -545,8 +633,8 @@ export default function GradPathApp() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {studentData.completed_courses.map((courseCode, index) => (
-                          <div key={`${courseCode}-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        {[...new Set(studentData.completed_courses)].map((courseCode, index) => (
+                          <div key={`completed-${courseCode}-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex items-center gap-2">
                               <GraduationCap className="w-4 h-4 text-green-600" />
                               <span className="font-medium">{courseCode}</span>
@@ -574,6 +662,98 @@ export default function GradPathApp() {
           </div>
         )}
       </div>
+
+      {/* Account Settings Modal */}
+      <Dialog open={showAccountSettings} onOpenChange={setShowAccountSettings}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Account Settings</DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-4 top-4"
+              onClick={() => setShowAccountSettings(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email" className="text-sm font-medium">
+                Email Address
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={currentUser?.email || ""}
+                className="mt-1"
+                disabled
+              />
+              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+            </div>
+
+            <div>
+              <Label htmlFor="currentPassword" className="text-sm font-medium">
+                Current Password
+              </Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={accountPassword}
+                onChange={(e) => setAccountPassword(e.target.value)}
+                className="mt-1"
+                placeholder="Enter current password"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="newPassword" className="text-sm font-medium">
+                New Password
+              </Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="mt-1"
+                placeholder="Enter new password"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                Confirm New Password
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="mt-1"
+                placeholder="Confirm new password"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                onClick={handleUpdateAccount}
+                disabled={isUpdatingAccount || !accountPassword || !newPassword || !confirmPassword}
+                className="flex-1"
+              >
+                {isUpdatingAccount ? "Updating..." : "Update Password"}
+              </Button>
+              <Button
+                onClick={() => setShowAccountSettings(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
