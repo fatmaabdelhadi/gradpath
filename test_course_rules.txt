@@ -1,0 +1,31 @@
+Course Rules for Computer Science Department
+
+CS101: Introduction to Programming
+- Prerequisites: None
+- Minimum GPA: 0.0
+- Offered this semester: Yes
+- Credit Hours: 3
+
+CS102: Data Structures
+- Prerequisites: CS101
+- Minimum GPA: 2.0
+- Offered this semester: Yes
+- Credit Hours: 3
+
+CS201: Algorithms
+- Prerequisites: CS102
+- Minimum GPA: 2.5
+- Offered this semester: Yes
+- Credit Hours: 3
+
+CS301: Database Systems
+- Prerequisites: CS201, CS204
+- Minimum GPA: 3.0
+- Offered this semester: No
+- Credit Hours: 3
+
+CS305: Software Engineering
+- Prerequisites: CS201
+- Minimum GPA: 2.8
+- Offered this semester: Yes
+- Credit Hours: 3 

@@ -1,0 +1,11 @@
+Course Rules for Computer Science Department
+
+CS101: Introduction to Programming
+- Prerequisites: None
+- Minimum GPA: 0.0
+- Offered this semester: Yes
+
+CS102: Data Structures
+- Prerequisites: CS101
+- Minimum GPA: 2.0
+- Offered this semester: Yes

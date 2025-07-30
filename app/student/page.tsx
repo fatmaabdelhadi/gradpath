@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,14 +8,40 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LogOut, Send, Search, PanelLeft, X, User } from "lucide-react"
 
+interface ChatMessage {
+  id: string
+  type: "user" | "bot"
+  content: string
+  timestamp: Date
+}
+
 export default function GradPathApp() {
   const router = useRouter()
   const [currentView, setCurrentView] = useState<"chat" | "preferences">("chat")
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [message, setMessage] = useState("")
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: "1",
+      type: "bot",
+      content: "Welcome Back! I'm your academic advisor. How can I help you today?",
+      timestamp: new Date()
+    }
+  ])
+  const [isLoading, setIsLoading] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [timePreference, setTimePreference] = useState("morning")
   const [courseType, setCourseType] = useState("project-based")
   const [selectedInstructors, setSelectedInstructors] = useState(["Mohamed Mohsen", "Hussein Elshazly"])
+
+  useEffect(() => {
+    const user = localStorage.getItem("currentUser")
+    if (user) {
+      setCurrentUser(JSON.parse(user))
+    } else {
+      router.push("/")
+    }
+  }, [router])
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser")
@@ -24,6 +50,67 @@ export default function GradPathApp() {
 
   const removeInstructor = (instructor: string) => {
     setSelectedInstructors((prev) => prev.filter((i) => i !== instructor))
+  }
+
+  const sendMessage = async () => {
+    if (!message.trim() || !currentUser) return
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: "user",
+      content: message,
+      timestamp: new Date()
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setMessage("")
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("http://localhost:8000/chatbot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: message,
+          user_id: currentUser._id || currentUser.id
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to get response from chatbot")
+      }
+
+      const data = await response.json()
+      
+      const botMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "bot",
+        content: data.response,
+        timestamp: new Date()
+      }
+
+      setMessages(prev => [...prev, botMessage])
+    } catch (error) {
+      console.error("Error sending message:", error)
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "bot",
+        content: "Sorry, I'm having trouble connecting to the server. Please try again later.",
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
   }
 
   return (
@@ -117,54 +204,39 @@ export default function GradPathApp() {
             {/* Chat Content */}
             <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
               <div className="max-w-4xl space-y-6">
-                {/* Welcome Message */}
-                <div className="flex items-start gap-3">
-                  <Avatar className="w-8 h-8 bg-gray-800 mt-1">
-                    <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
-                  </Avatar>
-                  <div className="bg-white rounded-lg p-4 shadow-sm max-w-md">
-                    <p className="text-gray-900 text-sm">Welcome Back, Salma!</p>
+                {messages.map((msg) => (
+                  <div key={msg.id} className={`flex items-start gap-3 ${msg.type === "user" ? "justify-end" : ""}`}>
+                    {msg.type === "bot" && (
+                      <Avatar className="w-8 h-8 bg-gray-800 mt-1">
+                        <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
+                      </Avatar>
+                    )}
+                    <div className={`rounded-lg p-4 shadow-sm ${
+                      msg.type === "user" 
+                        ? "bg-blue-500 text-white max-w-md" 
+                        : "bg-white text-gray-900 max-w-2xl"
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                    {msg.type === "user" && (
+                      <Avatar className="w-8 h-8 bg-blue-500 mt-1">
+                        <AvatarFallback className="text-white text-sm font-medium">
+                          {currentUser?.email?.charAt(0).toUpperCase() || "S"}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
-                </div>
-
-                {/* User Message */}
-                <div className="flex items-start gap-3 justify-end">
-                  <div className="bg-blue-500 rounded-lg p-4 shadow-sm max-w-md">
-                    <p className="text-white text-sm">Why can't I take Algorithms course?</p>
-                  </div>
-                  <Avatar className="w-8 h-8 bg-blue-500 mt-1">
-                    <AvatarFallback className="text-white text-sm font-medium">S</AvatarFallback>
-                  </Avatar>
-                </div>
-
-                {/* Bot Response */}
-                <div className="flex items-start gap-3">
-                  <Avatar className="w-8 h-8 bg-gray-800 mt-1">
-                    <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
-                  </Avatar>
-                  <div className="bg-white rounded-lg p-4 shadow-sm max-w-2xl">
-                    <p className="text-gray-900 text-sm mb-4">
-                      Hi Salma! 👋 You're not eligible to take <span className="font-semibold">CS201 – Algorithms</span>{" "}
-                      right now because of the following reason(s):
-                    </p>
-                    <div className="space-y-4 text-sm">
-                      <div>
-                        <p className="font-semibold text-gray-900">1. Missing prerequisite course:</p>
-                        <p className="text-gray-700 ml-6 mt-1">
-                          You need to complete <span className="font-semibold">CS102 – Data Structures</span> before
-                          taking Algorithms.
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">2. Minimum GPA not met:</p>
-                        <p className="text-gray-700 ml-6 mt-1">
-                          The course requires a <span className="font-semibold">minimum GPA of 2.3</span>, but your
-                          current GPA is <span className="font-semibold">2.0</span>.
-                        </p>
-                      </div>
+                ))}
+                {isLoading && (
+                  <div className="flex items-start gap-3">
+                    <Avatar className="w-8 h-8 bg-gray-800 mt-1">
+                      <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
+                    </Avatar>
+                    <div className="bg-white rounded-lg p-4 shadow-sm max-w-md">
+                      <p className="text-gray-900 text-sm">Thinking...</p>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -175,12 +247,16 @@ export default function GradPathApp() {
                   <Input
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
                     placeholder="Ask me anything - 'Why can't I take X Course?'"
                     className="pr-12 py-3 border-gray-200 text-sm"
+                    disabled={isLoading}
                   />
                   <Button
                     size="sm"
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-800 hover:bg-gray-700 h-8 w-8 p-0"
+                    onClick={sendMessage}
+                    disabled={isLoading || !message.trim()}
                   >
                     <Send className="w-4 h-4" />
                   </Button>

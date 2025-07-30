@@ -1,0 +1,34 @@
+Student Rules and Restrictions
+
+Prerequisites Rules:
+If the student did not take a course from the prerequisite list THEN HE CAN NOT take the dependent course.
+BUT if he took the course (prerequisite) and failed he can take any of the dependent courses.
+
+Probation Rules:
+Students are considered advising students if:
+1) Failing more than two courses in the same season (either in winter or spring).
+2) Failing any course (failed/missed the 1st and 2nd makeup exam).
+3) A probation student with GPA higher than 3.7.
+4) Missing a course (unattended) in the semester when it is offered.
+
+GPA Rules:
+A probation student with a GPA of 3.71 and more.
+
+Course Registration Rules:
+Students with no probation case can add up to 3 extra hours (maximum 35 hours) to add another course.
+Students are not allowed to be enrolled in any courses parallel to the Internship in the same semester except Business Ethics.
+
+Failed Course Rules:
+If Failed more than 2 courses (either in winter or spring) they have to take all FAILED courses OBLIGATORY.
+Unattended courses from previous semesters should be taken before their current semester courses.
+
+Makeup Exam Rules:
+If a student fails two or fewer courses in the winter or spring semester, and the course still appears as mandatory, you should issue a memo to deactivate the course for them.
+If a student fails more than two courses in the winter semester, for example, they must repeat all three courses.
+
+Bachelor Student Rules:
+If the student is eligible for bachelor he can add two courses and 1 Humanity (Business ethics or German Languages).
+He must sign the extra Hours Declaration Form.
+
+Internship Rules:
+Students are not allowed to be enrolled in any courses parallel to the Internship in the same semester except Business Ethics. 

@@ -1,0 +1,32 @@
+Informatics and Computer Science Program
+
+Year Winter Spring
+First
+Second
+No. Code Name Hours ECTS - CP
+L1 E2 P3
+1 MATH 101 Math I 4 4 0 8
+2 PHYS 101 Physics 3 2 0 5
+3 INCS 101 Programming I 2 2 2 6
+4 INCS 102 Digital Logic Design 2 2 0 5
+5 AE 101 Introduction to Academic English 0 4 0 2
+6 DE 101 German 1 0 4 0 2
+
+Third
+Fourth
+No. Code Name Hours ECTS - CP
+L E P
+1 MATH 301 Math III 3 2 0 4
+2 INCS 301 Programming III 3 2 2 7
+3 INCS 302 Operating Systems 3 0 2 5
+4 INCS 303 Databases 2 2 2 6
+5 INCS 304 Data Structures & Algorithms 2 2 2 6
+6 CPS 402 Communication and Presentation Skills 0 2 0 2
+7 DE 301 German 3 0 4 0 2
+
+Data Science Module and Elective Courses
+No. Code Name Hours ECTS - CP
+L E P
+1 INCS 502 Database Programming 2 0 2 5
+2 INCS 503 Data Engineering and Visualization 2 0 2 5
+3 INCS 504 Machine Learning 2 0 2 5 
