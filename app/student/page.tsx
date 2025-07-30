@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { LogOut, Send, Search, PanelLeft, X, User } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { LogOut, Send, Search, PanelLeft, X, User, Plus, BookOpen, GraduationCap, TrendingUp, AlertCircle } from "lucide-react"
 
 interface ChatMessage {
   id: string
@@ -15,9 +19,24 @@ interface ChatMessage {
   timestamp: Date
 }
 
+interface StudentData {
+  id: string
+  email: string
+  role: string
+  gpa: number
+  completed_courses: string[]
+  academic_standing: string
+}
+
+interface Course {
+  code: string
+  title: string
+  credit_hours: number
+}
+
 export default function GradPathApp() {
   const router = useRouter()
-  const [currentView, setCurrentView] = useState<"chat" | "preferences">("chat")
+  const [currentView, setCurrentView] = useState<"chat" | "dashboard">("chat")
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -30,26 +49,130 @@ export default function GradPathApp() {
   ])
   const [isLoading, setIsLoading] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [timePreference, setTimePreference] = useState("morning")
-  const [courseType, setCourseType] = useState("project-based")
-  const [selectedInstructors, setSelectedInstructors] = useState(["Mohamed Mohsen", "Hussein Elshazly"])
+  const [studentData, setStudentData] = useState<StudentData | null>(null)
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([])
+  const [loadingStudentData, setLoadingStudentData] = useState(false)
+  const [showAddCourseDialog, setShowAddCourseDialog] = useState(false)
+  const [newGPA, setNewGPA] = useState("")
+  const [selectedCourse, setSelectedCourse] = useState("")
 
   useEffect(() => {
     const user = localStorage.getItem("currentUser")
     if (user) {
-      setCurrentUser(JSON.parse(user))
+      const userData = JSON.parse(user)
+      setCurrentUser(userData)
+      if (userData.role === "student") {
+        fetchStudentData(userData._id || userData.id)
+        fetchAvailableCourses()
+      }
     } else {
       router.push("/")
     }
   }, [router])
+
+  const fetchStudentData = async (userId: string) => {
+    setLoadingStudentData(true)
+    try {
+      const response = await fetch(`http://localhost:8000/students/${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Remove duplicates from completed_courses
+        const uniqueCompletedCourses = [...new Set(data.student.completed_courses)]
+        setStudentData({
+          ...data.student,
+          completed_courses: uniqueCompletedCourses
+        })
+      } else {
+        console.error("Failed to fetch student data")
+      }
+    } catch (error) {
+      console.error("Error fetching student data:", error)
+    } finally {
+      setLoadingStudentData(false)
+    }
+  }
+
+  const fetchAvailableCourses = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/courses")
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableCourses(data.courses)
+      }
+    } catch (error) {
+      console.error("Error fetching courses:", error)
+    }
+  }
+
+  const updateStudentData = async (updateData: any) => {
+    if (!currentUser) return
+
+    try {
+      const response = await fetch(`http://localhost:8000/students/${currentUser._id || currentUser.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (response.ok) {
+        // Refresh student data
+        await fetchStudentData(currentUser._id || currentUser.id)
+        return true
+      } else {
+        console.error("Failed to update student data")
+        return false
+      }
+    } catch (error) {
+      console.error("Error updating student data:", error)
+      return false
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser")
     router.push("/")
   }
 
-  const removeInstructor = (instructor: string) => {
-    setSelectedInstructors((prev) => prev.filter((i) => i !== instructor))
+  const handleAddCompletedCourse = async () => {
+    if (!selectedCourse || !studentData) return
+
+    // Check if course is already completed
+    if (studentData.completed_courses.includes(selectedCourse)) {
+      alert("This course is already in your completed courses list!")
+      return
+    }
+
+    const updatedCourses = [...studentData.completed_courses, selectedCourse]
+    const success = await updateStudentData({ completed_courses: updatedCourses })
+    
+    if (success) {
+      setShowAddCourseDialog(false)
+      setSelectedCourse("")
+    }
+  }
+
+  const handleRemoveCompletedCourse = async (courseCode: string) => {
+    if (!studentData) return
+
+    const updatedCourses = studentData.completed_courses.filter(course => course !== courseCode)
+    await updateStudentData({ completed_courses: updatedCourses })
+  }
+
+  const handleUpdateGPA = async () => {
+    if (!newGPA || !studentData) return
+
+    const gpa = parseFloat(newGPA)
+    if (isNaN(gpa) || gpa < 0 || gpa > 4) {
+      alert("Please enter a valid GPA between 0 and 4")
+      return
+    }
+
+    const success = await updateStudentData({ gpa })
+    if (success) {
+      setNewGPA("")
+    }
   }
 
   const sendMessage = async () => {
@@ -113,6 +236,19 @@ export default function GradPathApp() {
     }
   }
 
+  const getAcademicStandingColor = (standing: string) => {
+    switch (standing) {
+      case "good":
+        return "bg-green-100 text-green-800"
+      case "probation":
+        return "bg-yellow-100 text-yellow-800"
+      case "suspension":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
   return (
     <div className="flex h-screen bg-[#8fa3b0] p-4 gap-4">
       {/* Sidebar */}
@@ -144,11 +280,11 @@ export default function GradPathApp() {
               </div>
               <div
                 className={`px-3 py-2 text-sm cursor-pointer rounded ${
-                  currentView === "preferences" ? "text-white bg-gray-700" : "text-gray-300 hover:text-white"
+                  currentView === "dashboard" ? "text-white bg-gray-700" : "text-gray-300 hover:text-white"
                 }`}
-                onClick={() => setCurrentView("preferences")}
+                onClick={() => setCurrentView("dashboard")}
               >
-                Preferences
+                Dashboard
               </div>
             </div>
           </nav>
@@ -181,7 +317,7 @@ export default function GradPathApp() {
                 <PanelLeft className="w-4 h-4" />
               </Button>
             )}
-            <h2 className="text-xl font-medium text-gray-900">{currentView === "chat" ? "Gradbot" : "Preferences"}</h2>
+            <h2 className="text-xl font-medium text-gray-900">{currentView === "chat" ? "Gradbot" : "Student Dashboard"}</h2>
           </div>
           <div className="flex items-center gap-4">
             {currentView === "chat" && (
@@ -207,9 +343,9 @@ export default function GradPathApp() {
                 {messages.map((msg) => (
                   <div key={msg.id} className={`flex items-start gap-3 ${msg.type === "user" ? "justify-end" : ""}`}>
                     {msg.type === "bot" && (
-                      <Avatar className="w-8 h-8 bg-gray-800 mt-1">
-                        <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
-                      </Avatar>
+                  <Avatar className="w-8 h-8 bg-gray-800 mt-1">
+                    <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
+                  </Avatar>
                     )}
                     <div className={`rounded-lg p-4 shadow-sm ${
                       msg.type === "user" 
@@ -217,7 +353,7 @@ export default function GradPathApp() {
                         : "bg-white text-gray-900 max-w-2xl"
                     }`}>
                       <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                    </div>
+                  </div>
                     {msg.type === "user" && (
                       <Avatar className="w-8 h-8 bg-blue-500 mt-1">
                         <AvatarFallback className="text-white text-sm font-medium">
@@ -228,10 +364,10 @@ export default function GradPathApp() {
                   </div>
                 ))}
                 {isLoading && (
-                  <div className="flex items-start gap-3">
-                    <Avatar className="w-8 h-8 bg-gray-800 mt-1">
-                      <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
-                    </Avatar>
+                <div className="flex items-start gap-3">
+                  <Avatar className="w-8 h-8 bg-gray-800 mt-1">
+                    <AvatarFallback className="text-white text-sm font-medium">G</AvatarFallback>
+                  </Avatar>
                     <div className="bg-white rounded-lg p-4 shadow-sm max-w-md">
                       <p className="text-gray-900 text-sm">Thinking...</p>
                     </div>
@@ -265,131 +401,176 @@ export default function GradPathApp() {
             </div>
           </>
         ) : (
-          /* Preferences Content */
+          /* Dashboard Content */
           <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
-            <div className="max-w-2xl space-y-8">
-              {/* Time Preferences */}
-              <div>
-                <h3 className="text-base font-medium text-gray-900 mb-4">Time Preferences</h3>
-                <div className="flex gap-8">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="time"
-                      value="morning"
-                      checked={timePreference === "morning"}
-                      onChange={(e) => setTimePreference(e.target.value)}
-                      className="w-4 h-4 text-blue-500 border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-900 text-sm">Morning</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="time"
-                      value="afternoon"
-                      checked={timePreference === "afternoon"}
-                      onChange={(e) => setTimePreference(e.target.value)}
-                      className="w-4 h-4 text-blue-500 border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-900 text-sm">Afternoon</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="time"
-                      value="evening"
-                      checked={timePreference === "evening"}
-                      onChange={(e) => setTimePreference(e.target.value)}
-                      className="w-4 h-4 text-blue-500 border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-900 text-sm">Evening</span>
-                  </label>
-                </div>
+            {loadingStudentData ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800"></div>
               </div>
+            ) : studentData ? (
+              <div className="max-w-6xl space-y-6">
+                {/* Student Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Current GPA</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{studentData.gpa.toFixed(2)}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {studentData.gpa >= 3.5 ? "Excellent" : studentData.gpa >= 3.0 ? "Good" : studentData.gpa >= 2.0 ? "Satisfactory" : "Needs Improvement"}
+                      </p>
+                    </CardContent>
+                  </Card>
 
-              {/* Course Type Preferences */}
-              <div>
-                <h3 className="text-base font-medium text-gray-900 mb-4">Course Type Preferences</h3>
-                <div className="flex gap-8">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="courseType"
-                      value="project-based"
-                      checked={courseType === "project-based"}
-                      onChange={(e) => setCourseType(e.target.value)}
-                      className="w-4 h-4 text-blue-500 border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-900 text-sm">Project-Based</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="courseType"
-                      value="theoretical"
-                      checked={courseType === "theoretical"}
-                      onChange={(e) => setCourseType(e.target.value)}
-                      className="w-4 h-4 text-blue-500 border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-900 text-sm">Theoretical</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="courseType"
-                      value="labs-only"
-                      checked={courseType === "labs-only"}
-                      onChange={(e) => setCourseType(e.target.value)}
-                      className="w-4 h-4 text-blue-500 border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-900 text-sm">Labs Only</span>
-                  </label>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Completed Courses</CardTitle>
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{studentData.completed_courses.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {studentData.completed_courses.length} courses completed
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Academic Standing</CardTitle>
+                      <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <Badge className={getAcademicStandingColor(studentData.academic_standing)}>
+                        {studentData.academic_standing.charAt(0).toUpperCase() + studentData.academic_standing.slice(1)}
+                      </Badge>
+                    </CardContent>
+                  </Card>
                 </div>
-              </div>
 
-              {/* Preferred Instructors */}
-              <div>
-                <h3 className="text-base font-medium text-gray-900 mb-2">Preferred Instructors (Optional)</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  If there are instructors you prefer learning from, you can list them here to help tailor suggestions.
-                </p>
-
-                <Select>
-                  <SelectTrigger className="w-full mb-4 border-gray-200 text-sm h-10">
-                    <SelectValue placeholder="Choose Instructor(s)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mohamed">Mohamed Mohsen</SelectItem>
-                    <SelectItem value="hussein">Hussein Elshazly</SelectItem>
-                    <SelectItem value="other">Other Instructor</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* Selected Instructors */}
-                <div className="space-y-2">
-                  {selectedInstructors.map((instructor, index) => (
-                    <div key={index} className="flex items-center gap-3 bg-white p-3 rounded border border-gray-200">
-                      <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-900 text-sm flex-1">{instructor}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeInstructor(instructor)}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50 p-1 h-6 w-6"
-                      >
-                        <X className="w-4 h-4" />
+                {/* GPA Update Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Update GPA</CardTitle>
+                    <CardDescription>
+                      Keep your GPA updated for better academic advising
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-4 items-end">
+                      <div className="flex-1">
+                        <Label htmlFor="gpa">Current GPA</Label>
+                        <Input
+                          id="gpa"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="4"
+                          value={newGPA}
+                          onChange={(e) => setNewGPA(e.target.value)}
+                          placeholder="Enter your GPA (0.0 - 4.0)"
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button onClick={handleUpdateGPA} disabled={!newGPA}>
+                        Update GPA
                       </Button>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </CardContent>
+                </Card>
 
-              {/* Save Button */}
-              <div className="pt-4">
-                <Button className="bg-[#1a2332] hover:bg-gray-800 text-white px-6 text-sm">Save Preferences</Button>
+                {/* Completed Courses Section */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Completed Courses</CardTitle>
+                        <CardDescription>
+                          Track the courses you have successfully completed
+                        </CardDescription>
+                      </div>
+                      <Dialog open={showAddCourseDialog} onOpenChange={setShowAddCourseDialog}>
+                        <DialogTrigger asChild>
+                          <Button>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Course
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Add Completed Course</DialogTitle>
+                            <DialogDescription>
+                              Select a course you have successfully completed
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="course-select">Course</Label>
+                              <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a course" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableCourses
+                                    .filter(course => !studentData.completed_courses.includes(course.code))
+                                    .map((course) => (
+                                      <SelectItem key={course.code} value={course.code}>
+                                        {course.code} - {course.title}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setShowAddCourseDialog(false)}>
+                                Cancel
+                              </Button>
+                              <Button onClick={handleAddCompletedCourse} disabled={!selectedCourse}>
+                                Add Course
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {studentData.completed_courses.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>No completed courses yet</p>
+                        <p className="text-sm">Add your completed courses to get better academic advice</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {studentData.completed_courses.map((courseCode, index) => (
+                          <div key={`${courseCode}-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <GraduationCap className="w-4 h-4 text-green-600" />
+                              <span className="font-medium">{courseCode}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveCompletedCourse(courseCode)}
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50 p-1 h-6 w-6"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>Failed to load student data</p>
+              </div>
+            )}
           </div>
         )}
       </div>
