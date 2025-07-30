@@ -4,6 +4,10 @@ export interface IUser extends Document {
   email: string
   password: string
   role: 'student' | 'advisor'
+  // Student-specific fields
+  gpa?: number
+  completed_courses?: string[]
+  academic_standing?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -29,6 +33,22 @@ const UserSchema = new Schema<IUser>({
       values: ['student', 'advisor'],
       message: 'Role must be either "student" or "advisor"'
     }
+  },
+  // Student-specific fields
+  gpa: {
+    type: Number,
+    default: 0.0,
+    min: 0.0,
+    max: 4.0
+  },
+  completed_courses: {
+    type: [String],
+    default: []
+  },
+  academic_standing: {
+    type: String,
+    enum: ['good', 'probation', 'suspension'],
+    default: 'good'
   }
 }, {
   timestamps: true,

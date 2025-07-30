@@ -1,0 +1,25 @@
+Course Information
+
+First Year Courses:
+INCS 101: Programming I - 3 credit hours - No prerequisites
+INCS 102: Digital Logic Design - 3 credit hours - Prerequisites: INCS 101
+MATH 101: Math I - 4 credit hours - No prerequisites
+PHYS 101: Physics - 3 credit hours - No prerequisites
+
+Second Year Courses:
+INCS 201: Programming II - 3 credit hours - Prerequisites: INCS 101
+INCS 202: Computer Networks - 3 credit hours - Prerequisites: INCS 101
+INCS 203: Theoretical Computer Science - 3 credit hours - Prerequisites: INCS 102
+MATH 201: Math II - 2 credit hours - Prerequisites: MATH 101
+
+Third Year Courses:
+INCS 301: Programming III - 3 credit hours - Prerequisites: INCS 201
+INCS 302: Operating Systems - 3 credit hours - Prerequisites: INCS 201
+INCS 303: Databases - 2 credit hours - Prerequisites: INCS 201
+INCS 304: Data Structures & Algorithms - 2 credit hours - Prerequisites: INCS 201
+
+Fourth Year Courses:
+INCS 401: Software Engineering - 2 credit hours - Prerequisites: INCS 301
+INCS 402: Distributed & Web-based Systems - 2 credit hours - Prerequisites: INCS 302
+INCS 403: Information Security - 2 credit hours - Prerequisites: INCS 303
+INCS 404: Introduction to Data Science - 2 credit hours - Prerequisites: INCS 304 
